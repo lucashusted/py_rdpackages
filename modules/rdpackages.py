@@ -27,10 +27,9 @@ import numpy as np
 ### Plotting of RD Design
 ###############################################################################
 ###############################################################################
-def rdplot(y,x,df,covs=None,x_range=[],
-           c = 0, p = 4, nbins = None, binselect = 'esmv',
-           scale = None, kernel = 'uni', weights = None, h = None,
-           support = None, subset=None, hide=False, R_options='', verbose=False, size=True, legend=False):
+def rdplot(y, x, df, covs = None, x_range = [], c = 0, p = 4, nbins = None, binselect = 'esmv',
+           scale = None, kernel = 'uni', weights = None, h = None, support = None, subset = None,
+           hide = False, R_options = '', verbose = False, size = True, legend = False):
     '''
 Implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two type of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means mimicking the underlying variability of the data.
 
