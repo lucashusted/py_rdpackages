@@ -129,9 +129,13 @@ Output:
 
     # y and x are called every time
     rdplot_call = 'y=df$%s,' %y + 'x=df$%s,' %x + 'hide=TRUE'
-    if covs:
+    # Covariates only called if they exist, and then we treat them separately for list or string
+    if covs and type(covs)==list:
         all_covars = ',covs=cbind(' + ','.join(['df$%s' %x for x in covs])
         rdplot_call += all_covars[:-1]+')'
+    elif covs and type(covs)==str:
+        all_covars =  ',covs=df$%s' %covs
+    # Take a subset
     if subset:
         rdplot_call += ','+'subset='+'df$%s' %subset
 
@@ -149,10 +153,12 @@ Output:
             rdplot_call += ''.join([',',str(key),'=',str(value)])
     if R_options:
         rdplot_call += ',' + R_options
+
     function_call = '\n'.join(filter(None,
                                      ['library(rdrobust)',
                                       "df = read.csv('temp_file_for_rdplot.csv')",
                                       "out = rdplot(%s)" %rdplot_call]))
+
     if x_range:
         df = df[df[x].between(x_range[0],x_range[1])]
     df.to_csv('temp_file_for_rdplot.csv')
@@ -187,11 +193,14 @@ Output:
         else:
             ax = sns.scatterplot(x='rdplot_mean_bin',y='rdplot_mean_y',
                                  data=bin_output,s=75)
+
         plt.axvline(c,color=sns.color_palette()[1],linewidth=.75)
         sns.lineplot(x=line_output.rdplot_x[line_output.rdplot_x<0],y=line_output.rdplot_y[line_output.rdplot_x<0],
                      ax=ax,color=sns.color_palette()[0],linewidth=2)
         sns.lineplot(x=line_output.rdplot_x[line_output.rdplot_x>0],y=line_output.rdplot_y[line_output.rdplot_x>0],
-                     ax=ax,color=sns.color_palette()[0],linewidth=2)   result = rd_dict(ax=ax,text_rdplot_arg=rdplot_call,**elements)
+                     ax=ax,color=sns.color_palette()[0],linewidth=2)
+        # Result includes the plot axis
+        result = rd_dict(ax=ax,text_rdplot_arg=rdplot_call,**elements)
 
     return result
 
@@ -317,9 +326,12 @@ Output:
     rdplot_call = 'y=df$%s,' %y + 'x=df$%s' %x
 
     # Other variables are actually in the dataframe and need to be added to the call
-    if covs:
+    if covs and type(covs)==list:
         all_covars = ',covs=cbind(' + ','.join(['df$%s' %x for x in covs])
         rdplot_call += all_covars[:-1]+')'
+    elif covs and type(covs)==str:
+        all_covars = ',covs=df$%s' %covs
+    # Take a subset
     if subset:
         rdplot_call += ','+'subset='+'df$%s' %subset
     if fuzzy:
@@ -476,9 +488,12 @@ Output:
     rdplot_call = 'y=df$%s,' %y + 'x=df$%s' %x
 
     # Other variables are actually in the dataframe and need to be added to the call
-    if covs:
+    if covs and type(covs)==list:
         all_covars = ',covs=cbind(' + ','.join(['df$%s' %x for x in covs])
         rdplot_call += all_covars[:-1]+')'
+    elif covs and type(covs)==str:
+        all_covars = ',covs=df$%s' %covs
+    # Take a subset
     if subset:
         rdplot_call += ','+'subset='+'df$%s' %subset
     if fuzzy:
