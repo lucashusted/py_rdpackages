@@ -31,7 +31,7 @@ def rdplot(y, x, df, covs = None, x_range = [], c = 0, p = 4, nbins = None, bins
            scale = None, kernel = 'uni', weights = None, h = None, support = None, subset = None,
            hide = False, R_options = '', verbose = False, size = True, legend = False):
     '''
-Implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two type of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means mimicking the underlying variability of the data.
+Implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two type of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means mimicking the underlying variability of the data. See here: https://www.rdocumentation.org/packages/rdrobust/versions/0.99.4/topics/rdplot.
 
 Inputs:
     y is the dependent variable. It should be a string representing a column in your dataframe.
@@ -50,14 +50,22 @@ Inputs:
 
     nbins specifies the number of bins used to the left of the cutoff, denoted J−, and to the right of the cutoff, denoted J+, respectively. If not specified, J+ and J− are estimated using the method and options chosen below.
 
-    binselect specifies the procedure to select the number of bins. This option is available only if J− and J+ are not set manually. Options are:
+    binselect specifies the procedure to select the number of bins. This option is available only if J− and J+ are not set manually. Options are
+
         es: IMSE-optimal evenly-spaced method using spacings estimators.
+
         espr: IMSE-optimal evenly-spaced method using polynomial regression.
+
         esmv: mimicking variance evenly-spaced method using spacings estimators. This is the default option.
+
         esmvpr: mimicking variance evenly-spaced method using polynomial regression.
+
         qs: IMSE-optimal quantile-spaced method using spacings estimators.
+
         qspr: IMSE-optimal quantile-spaced method using polynomial regression.
+
         qsmv: mimicking variance quantile-spaced method using spacings estimators.
+
         qsmvpr: mimicking variance quantile-spaced method using polynomial regression.
 
     scale  specifies a multiplicative factor to be used with the optimal numbers of bins selected. Specifically, the number of bins used for the treatment and control groups will be scale×^J+ and scale×^J−, where ^J⋅ denotes the estimated optimal numbers of bins originally computed for each group; default is scale = 1.
@@ -74,7 +82,7 @@ Inputs:
 
     hide supresses the graph (running it often causes the program to fail)
 
-    R_options allows you to manually insert additional options (see R documentation of the original program for more information -- https://www.rdocumentation.org/packages/rdrobust/versions/0.99.4/topics/rdplot). You should insert any options as a string, in the same format as you would in R. However, this should not really be used. Most of these options are for formatting R plots, which are default going to be turned off here.
+    R_options allows you to manually insert additional options (see R documentation of the original program for more information). You should insert any options as a string, in the same format as you would in R. However, this should not really be used. Most of these options are for formatting R plots, which are default going to be turned off here.
 
     verbose has it print the rdplot call from R for you
 
@@ -123,7 +131,7 @@ Output:
     '''
     # Pull in the dictionary of all the available variables
     d = vars()
-
+    df = df.copy()
     # General all purpose roptions
     roptions = ['c','p','nbins','binselect','scale','kernel','weights','h','support']
 
@@ -161,6 +169,8 @@ Output:
 
     if x_range:
         df = df[df[x].between(x_range[0],x_range[1])]
+    # Modifications to the dataframe to get rid of infinite values
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
     df.to_csv('temp_file_for_rdplot.csv')
     out = ro.r(function_call)
     if verbose:
@@ -187,6 +197,7 @@ Output:
     if hide:
         result = rd_dict(text_rdplot_arg=rdplot_call,**elements)
     else:
+        print('RD of %s on %s' %(y,x))
         if size:
             ax = sns.scatterplot(x='rdplot_mean_bin',y='rdplot_mean_y',
                                  data=bin_output,s=75,size='Obs',legend=legend)
@@ -215,7 +226,7 @@ def rdrobust(y, x, df, covs=[], x_range=[], c = 0, fuzzy = None, deriv = 0, p = 
              rho = None, kernel = 'tri', weights = None, scalepar = 1, scaleregul = 1,
              sharpbw = False, rep_all = True, subset = None, verbose=True):
     '''
-Implements local polynomial Regression Discontinuity (RD) point estimators with robust bias-corrected confidence intervals and inference procedures
+Implements local polynomial Regression Discontinuity (RD) point estimators with robust bias-corrected confidence intervals and inference procedures. See here: https://www.rdocumentation.org/packages/rdrobust/versions/0.99.4/topics/rdrobust.
 
 Inputs:
     y is the dependent variable.
@@ -250,11 +261,16 @@ Inputs:
 
     bwselect specifies the bandwidth selection procedure to be used. By default it computes both h and b, unless rho is specified, in which case it only computes h and sets b=h/rho.
 
-    vce specifies the procedure used to compute the variance-covariance matrix estimator (Default is vce=nn). Options are:
+    vce specifies the procedure used to compute the variance-covariance matrix estimator (Default is vce=nn). Options are
+
         nn for heteroskedasticity-robust nearest neighbor variance estimator with nnmatch the (minimum) number of neighbors to be used.
+
         hc0 for heteroskedasticity-robust plug-in residuals variance estimator without weights.
+
         hc1 for heteroskedasticity-robust plug-in residuals variance estimator with hc1 weights.
+
         hc2 for heteroskedasticity-robust plug-in residuals variance estimator with hc2 weights.
+
         hc3 for heteroskedasticity-robust plug-in residuals variance estimator with hc3 weights.
 
     cluster indicates the cluster ID variable used for cluster-robust variance estimation with degrees-of-freedom weights. By default it is combined with vce=nn for cluster-robust nearest neighbor variance estimation. Another option is plug-in residuals combined with vce=hc0.
@@ -269,10 +285,13 @@ Inputs:
 
     sharpbw option to perform fuzzy RD estimation using a bandwidth selection procedure for the sharp RD model. This option is automatically selected if there is perfect compliance at either side of the cutoff.
 
-    rep_all if specified, rdrobust reports three different procedures:
-        (i) conventional RD estimates with conventional standard errors.
-        (ii) bias-corrected estimates with conventional standard errors.
-        (iii) bias-corrected estimates with robust standard errors.
+    rep_all if specified, rdrobust reports three different procedures
+
+        conventional RD estimates with conventional standard errors.
+
+        bias-corrected estimates with conventional standard errors.
+
+        bias-corrected estimates with robust standard errors.
 
     subset an optional vector specifying a subset of observations to be used.
 
@@ -316,7 +335,7 @@ Output:
     '''
     # Pull in the dictionary of all the available variables
     d = vars()
-
+    df = df.copy()
     # General all purpose roptions
     roptions = ['c','deriv','p','q','h','bwselect','vce',
                 'nnmatch','level','b','rho','kernel','weights','scalepar',
@@ -362,6 +381,8 @@ Output:
                                       "out = rdrobust(%s)" %rdplot_call]))
     if x_range:
         df = df[df[x].between(x_range[0],x_range[1])]
+    # Modifications to the dataframe to get rid of infinite values
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
     df.to_csv('temp_file_for_rdplot.csv')
     out = ro.r(function_call)
     os.remove('temp_file_for_rdplot.csv')
@@ -389,7 +410,8 @@ Output:
 
     if verbose:
         print(out)
-        print(np.round(printout,2))
+        print('RD of %s on %s' %(y,x))
+        print(np.round(printout,3))
 
     return result
 
@@ -403,7 +425,8 @@ def rdbwselect(y, x, df, covs=[], x_range=[], c = 0, fuzzy = None, deriv = 0, p 
              kernel = 'tri', weights = None, scaleregul = 1,
              sharpbw = False, rep_all = False, subset = None, verbose=True):
     '''
-Implements bandwidth selectors for local polynomial Regression Discontinuity (RD) point estimators and inference procedures.
+Implements bandwidth selectors for local polynomial Regression Discontinuity (RD) point estimators and inference procedures. See here: https://www.rdocumentation.org/packages/rdrobust/versions/0.99.4/topics/rdbwselect.
+
 Inputs:
     y is the dependent variable.
 
@@ -429,25 +452,41 @@ Inputs:
 
     weights is the variable used for optional weighting of the estimation procedure. The unit-specific weights multiply the kernel function.
 
-    bwselect specifies the bandwidth selection procedure to be used. Options are:
+    bwselect specifies the bandwidth selection procedure to be used. Options are
+
         mserd one common MSE-optimal bandwidth selector for the RD treatment effect estimator.
+
         msetwo two different MSE-optimal bandwidth selectors (below and above the cutoff) for the RD treatment effect estimator.
+
         msesum one common MSE-optimal bandwidth selector for the sum of regression estimates (as opposed to difference thereof).
+
         msecomb1 for min(mserd,msesum).
+
         msecomb2 for median(msetwo,mserd,msesum), for each side of the cutoff separately.
+
         cerrd one common CER-optimal bandwidth selector for the RD treatment effect estimator.
+
         certwo two different CER-optimal bandwidth selectors (below and above the cutoff) for the RD treatment effect estimator.
+
         cersum one common CER-optimal bandwidth selector for the sum of regression estimates (as opposed to difference thereof).
+
         cercomb1 for min(cerrd,cersum).
+
         cercomb2 for median(certwo,cerrd,cersum), for each side of the cutoff separately.
+
         Note: MSE = Mean Square Error; CER = Coverage Error Rate. Default is bwselect=mserd. For details on implementation see Calonico, Cattaneo and Titiunik (2014a), Calonico, Cattaneo and Farrell (2018), and Calonico, Cattaneo, Farrell and Titiunik (2017), and the companion software articles.
 
-    vce specifies the procedure used to compute the variance-covariance matrix estimator (Default is vce=nn). Options are:
-    nn for heteroskedasticity-robust nearest neighbor variance estimator with nnmatch the (minimum) number of neighbors to be used.
-    hc0 for heteroskedasticity-robust plug-in residuals variance estimator without weights.
-    hc1 for heteroskedasticity-robust plug-in residuals variance estimator with hc1 weights.
-    hc2 for heteroskedasticity-robust plug-in residuals variance estimator with hc2 weights.
-    hc3 for heteroskedasticity-robust plug-in residuals variance estimator with hc3 weights.
+    vce specifies the procedure used to compute the variance-covariance matrix estimator (Default is vce=nn). Options are
+
+        nn for heteroskedasticity-robust nearest neighbor variance estimator with nnmatch the (minimum) number of neighbors to be used.
+
+        hc0 for heteroskedasticity-robust plug-in residuals variance estimator without weights.
+
+        hc1 for heteroskedasticity-robust plug-in residuals variance estimator with hc1 weights.
+
+        hc2 for heteroskedasticity-robust plug-in residuals variance estimator with hc2 weights.
+
+        hc3 for heteroskedasticity-robust plug-in residuals variance estimator with hc3 weights.
 
     cluster indicates the cluster ID variable used for cluster-robust variance estimation with degrees-of-freedom weights. By default it is combined with vce=nn for cluster-robust nearest neighbor variance estimation. Another option is plug-in residuals combined with vce=hc0.
 
@@ -478,7 +517,7 @@ Output:
    '''
     # Pull in the dictionary of all the available variables
     d = vars()
-
+    df = df.copy()
     # General all purpose roptions
     roptions = ['c','deriv','p','q','bwselect','vce',
                 'nnmatch','kernel','weights',
@@ -524,6 +563,8 @@ Output:
                                       "out = rdbwselect(%s)" %rdplot_call]))
     if x_range:
         df = df[df[x].between(x_range[0],x_range[1])]
+    # Modifications to the dataframe to get rid of infinite values
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
     df.to_csv('temp_file_for_rdplot.csv')
     out = ro.r(function_call)
     os.remove('temp_file_for_rdplot.csv')
@@ -549,6 +590,7 @@ Output:
 
     if verbose:
         print(out)
+        print('RD of %s on %s' %(y,x))
         print(np.round(printout,2))
 
     return result
