@@ -21,13 +21,14 @@ import seaborn as sns; sns.set()
 # Data manipulation packages
 import pandas as pd
 import numpy as np
+import statsmodels.api as sm
 
 ###############################################################################
 ###############################################################################
 ### Plotting of RD Design
 ###############################################################################
 ###############################################################################
-def rdplot(y, x, df, covs = None, x_range = [], c = 0, p = 4, nbins = None, binselect = 'esmv',
+def rdplot(y, x, df, covs = None, residualize = False, x_range = [], c = 0, p = 4, nbins = None, binselect = 'esmv',
            scale = None, kernel = 'uni', weights = None, h = None, support = None, subset = None,
            hide = False, R_options = '', verbose = False, size = True, legend = False):
     '''
@@ -41,6 +42,8 @@ Inputs:
     df specifies the pandas dataframe where this data is coming from
 
     covs specifies additional covariates to be used in the polynomial regression. They should be a list of columns names in your dataframe (strings).
+
+    residualize uses the residual of the LHS with respect to the covariates instead of the LHS itself. Covariates need to be specified for this option to be True.
 
     x_range allows you to trim the dataframe. This is seperate from the R option "support" as it is crude and will just remove all observations outside the range of the running variable.
 
@@ -138,7 +141,21 @@ Output:
     # y and x are called every time
     rdplot_call = 'y=df$%s,' %y + 'x=df$%s,' %x + 'hide=TRUE'
     # Covariates only called if they exist, and then we treat them separately for list or string
-    if covs and type(covs)==list:
+    if residualize==True:
+        if covs and type(covs)==list:
+            Z = df.filter(covs)
+        elif covs and type(covs)==str:
+            Z = df[covs]
+        else:
+            raise ValueError('Specified residuals but no valid covariates')
+        # Now getting the covariates, adding constant and executing residualization
+        Z = sm.add_constant(Z)
+        # residualize the LHS and bring in the residuals into the frame
+        df =  df.join(sm.OLS(df[y],Z,missing='drop').fit().resid.to_frame(name='res_%s' %y))
+        # y will now be the residuals we just loaded
+        df[y] = df['res_%s' %y]
+    # if not residualize, just deal with covariates normally if they exist
+    elif covs and type(covs)==list:
         all_covars = ',covs=cbind(' + ','.join(['df$%s' %x for x in covs])
         rdplot_call += all_covars[:-1]+')'
     elif covs and type(covs)==str:
