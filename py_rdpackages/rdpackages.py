@@ -30,7 +30,7 @@ import statsmodels.api as sm
 ###############################################################################
 def rdplot(y, x, df, covs = None, residualize = False, x_range = [], c = 0, p = 4, nbins = None, binselect = 'esmv',
            scale = None, kernel = 'uni', weights = None, h = None, support = None, subset = None,
-           hide = False, R_options = '', verbose = False, size = True, legend = False):
+           hide = False, R_options = None, verbose = False, size = True, legend = False):
     '''
 Implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two type of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means mimicking the underlying variability of the data. See here: https://www.rdocumentation.org/packages/rdrobust/versions/0.99.4/topics/rdplot.
 
@@ -85,7 +85,7 @@ Inputs:
 
     hide supresses the graph (running it often causes the program to fail)
 
-    R_options allows you to manually insert additional options (see R documentation of the original program for more information). You should insert any options as a string, in the same format as you would in R. However, this should not really be used. Most of these options are for formatting R plots, which are default going to be turned off here.
+    R_options should be a string. It allows you to manually insert additional options (see R documentation of the original program for more information). You should insert any options as a string, in the same format as you would in R. However, this should not really be used. Most of these options are for formatting R plots, which are default going to be turned off here.
 
     verbose has it print the rdplot call from R for you
 
@@ -135,17 +135,20 @@ Output:
     # Pull in the dictionary of all the available variables
     d = vars()
     df = df.copy()
+
+    if covs and type(covs)==str:
+        covs = [covs]
+
     # General all purpose roptions
     roptions = ['c','p','nbins','binselect','scale','kernel','weights','h','support']
 
     # y and x are called every time
     rdplot_call = 'y=df$%s,' %y + 'x=df$%s,' %x + 'hide=TRUE'
+
     # Covariates only called if they exist, and then we treat them separately for list or string
     if residualize==True:
-        if covs and type(covs)==list:
+        if covs:
             Z = df.filter(covs)
-        elif covs and type(covs)==str:
-            Z = df[covs]
         else:
             raise ValueError('Specified residuals but no valid covariates')
         # Now getting the covariates, adding constant and executing residualization
@@ -157,9 +160,7 @@ Output:
     # if not residualize, just deal with covariates normally if they exist
     elif covs and type(covs)==list:
         all_covars = ',covs=cbind(' + ','.join(['df$%s' %x for x in covs])
-        rdplot_call += all_covars[:-1]+')'
-    elif covs and type(covs)==str:
-        all_covars =  ',covs=df$%s' %covs
+        rdplot_call += all_covars+')'
     # Take a subset
     if subset:
         rdplot_call += ','+'subset='+'df$%s' %subset
@@ -185,7 +186,10 @@ Output:
                                       "out = rdplot(%s)" %rdplot_call]))
 
     if x_range:
-        df = df[df[x].between(x_range[0],x_range[1])]
+        df = df.loc[df[x].between(x_range[0],x_range[1]),
+                    [x,y] + covs if covs else [x,y]]
+    else:
+        df = df.loc[:,[x,y] + covs if covs else [x,y]]
     # Modifications to the dataframe to get rid of infinite values
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     df.to_csv('temp_file_for_rdplot.csv')
@@ -196,15 +200,21 @@ Output:
 
     elements = dict()
     for t in out.names:
-        try:
-            elements[t] = ro.pandas2ri.ri2py(out.rx2(t))
-        except:
-            print("There was an error, probably with importing R code")
-            pass
+        if t=='vars_poly' or t=='vars_bins':
+            temp_elements = dict()
+            for s in out.rx2(t).names:
+                temp_elements[s] = ro.pandas2ri.ri2py(out.rx2(t).rx2(s))
+            elements[t] = pd.DataFrame(temp_elements)
+        else:
+            try:
+                elements[t] = ro.pandas2ri.ri2py(out.rx2(t))
+            except:
+                print("There was an error, probably with importing R code")
+                pass
 
     line_output = elements['vars_poly']
     bin_output = elements['vars_bins']
-    bin_output.rename(columns={'rdplot_N':'Obs'},inplace=True)
+    bin_output = bin_output.rename(columns={'rdplot_N':'Obs'})
 
     class rd_dict:
         # So we get nice output._____ entries, this is bad coding
@@ -227,6 +237,7 @@ Output:
                      ax=ax,color=sns.color_palette()[0],linewidth=2)
         sns.lineplot(x=line_output.rdplot_x[line_output.rdplot_x>0],y=line_output.rdplot_y[line_output.rdplot_x>0],
                      ax=ax,color=sns.color_palette()[0],linewidth=2)
+        ax.set(xlabel=x,ylabel=y)
         # Result includes the plot axis
         result = rd_dict(ax=ax,text_rdplot_arg=rdplot_call,**elements)
 
@@ -238,7 +249,7 @@ Output:
 ### Robust RD Estimation
 ###############################################################################
 ###############################################################################
-def rdrobust(y, x, df, covs=[], x_range=[], c = 0, fuzzy = None, deriv = 0, p = 1, q=2, h = None,
+def rdrobust(y, x, df, covs=None, x_range=[], c = 0, fuzzy = None, deriv = 0, p = 1, q=2, h = None,
              bwselect = 'mserd', vce = 'nn', cluster = None, nnmatch = 3, level = 95, b = None,
              rho = None, kernel = 'tri', weights = None, scalepar = 1, scaleregul = 1,
              sharpbw = False, rep_all = True, subset = None, verbose=True):
@@ -353,6 +364,10 @@ Output:
     # Pull in the dictionary of all the available variables
     d = vars()
     df = df.copy()
+
+    if covs and type(covs)==str:
+        covs = [covs]
+
     # General all purpose roptions
     roptions = ['c','deriv','p','q','h','bwselect','vce',
                 'nnmatch','level','b','rho','kernel','weights','scalepar',
@@ -364,9 +379,8 @@ Output:
     # Other variables are actually in the dataframe and need to be added to the call
     if covs and type(covs)==list:
         all_covars = ',covs=cbind(' + ','.join(['df$%s' %x for x in covs])
-        rdplot_call += all_covars[:-1]+')'
-    elif covs and type(covs)==str:
-        all_covars = ',covs=df$%s' %covs
+        rdplot_call += all_covars+')'
+
     # Take a subset
     if subset:
         rdplot_call += ','+'subset='+'df$%s' %subset
