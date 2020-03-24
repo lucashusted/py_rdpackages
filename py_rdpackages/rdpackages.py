@@ -28,7 +28,7 @@ import statsmodels.api as sm
 ### Plotting of RD Design
 ###############################################################################
 ###############################################################################
-def rdplot(y, x, df, covs = None, residualize = False, x_range = [], c = 0, p = 4, nbins = None, binselect = 'esmv',
+def rdplot(y, x, df, covs = None, residualize = False, x_range = None, c = 0, p = 4, nbins = None, binselect = 'esmv',
            scale = None, kernel = 'uni', weights = None, h = None, support = None, subset = None,
            hide = False, R_options = None, verbose = False, size = True, legend = False):
     '''
@@ -45,7 +45,7 @@ Inputs:
 
     residualize uses the residual of the LHS with respect to the covariates instead of the LHS itself. Covariates need to be specified for this option to be True.
 
-    x_range allows you to trim the dataframe. This is seperate from the R option "support" as it is crude and will just remove all observations outside the range of the running variable.
+    x_range is a list and allows you to trim the dataframe. This is seperate from the R option "support" as it is crude and will just remove all observations outside the range of the running variable.
 
     c specifies the RD cutoff in x; default is c = 0.
 
@@ -81,7 +81,7 @@ Inputs:
 
     support  specifies an optional extended support of the running variable to be used in the construction of the bins; default is the sample range.
 
-    subset is optional vector specifying a subset of observations to be used
+    subset is optional vector specifying a subset of observations to be used, should be a string representing a column in the dataframe.
 
     hide supresses the graph (running it often causes the program to fail)
 
@@ -135,9 +135,11 @@ Output:
     # Pull in the dictionary of all the available variables
     d = vars()
     df = df.copy()
+    varlst = [x,y]
 
     if covs and type(covs)==str:
         covs = [covs]
+        varlst += covs
 
     # General all purpose roptions
     roptions = ['c','p','nbins','binselect','scale','kernel','weights','h','support']
@@ -158,12 +160,13 @@ Output:
         # y will now be the residuals we just loaded
         df[y] = df['res_%s' %y]
     # if not residualize, just deal with covariates normally if they exist
-    elif covs and type(covs)==list:
-        all_covars = ',covs=cbind(' + ','.join(['df$%s' %x for x in covs])
-        rdplot_call += all_covars+')'
+    elif covs:
+        rdplot_call += ',covs=cbind(' + ','.join(['df$%s' %x for x in covs])+')'
+
     # Take a subset
     if subset:
         rdplot_call += ','+'subset='+'df$%s' %subset
+        varlst += [subset]
 
     for key in roptions:
         value = d[key]
@@ -182,21 +185,23 @@ Output:
 
     function_call = '\n'.join(filter(None,
                                      ['library(rdrobust)',
-                                      "df = read.csv('temp_file_for_rdplot.csv')",
+                                      "df = read.csv('temp_file_for_rddesign.csv')",
                                       "out = rdplot(%s)" %rdplot_call]))
 
     if x_range:
-        df = df.loc[df[x].between(x_range[0],x_range[1]),
-                    [x,y] + covs if covs else [x,y]]
+        df = df.loc[df[x].between(x_range[0],x_range[1]),varlst]
     else:
-        df = df.loc[:,[x,y] + covs if covs else [x,y]]
+        df = df.loc[:,varlst]
+
     # Modifications to the dataframe to get rid of infinite values
-    df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df.to_csv('temp_file_for_rdplot.csv')
+    df = df.replace([np.inf, -np.inf], np.nan)
+
+    # here we print to csv, then run the R call, then remove the csv
+    df.to_csv('temp_file_for_rddesign.csv')
     out = ro.r(function_call)
     if verbose:
         print(out)
-    os.remove('temp_file_for_rdplot.csv')
+    os.remove('temp_file_for_rddesign.csv')
 
     elements = dict()
     for t in out.names:
@@ -209,7 +214,7 @@ Output:
             try:
                 elements[t] = ro.pandas2ri.ri2py(out.rx2(t))
             except:
-                print("There was an error, probably with importing R code")
+                print("There was an error, probably with importing R code for %s" %t)
                 pass
 
     line_output = elements['vars_poly']
@@ -224,7 +229,6 @@ Output:
     if hide:
         result = rd_dict(text_rdplot_arg=rdplot_call,**elements)
     else:
-        print('RD of %s on %s' %(y,x))
         if size:
             ax = sns.scatterplot(x='rdplot_mean_bin',y='rdplot_mean_y',
                                  data=bin_output,s=75,size='Obs',legend=legend)
@@ -233,9 +237,9 @@ Output:
                                  data=bin_output,s=75)
 
         plt.axvline(c,color=sns.color_palette()[1],linewidth=.75)
-        sns.lineplot(x=line_output.rdplot_x[line_output.rdplot_x<0],y=line_output.rdplot_y[line_output.rdplot_x<0],
+        sns.lineplot(x=line_output.rdplot_x[line_output.rdplot_x<c],y=line_output.rdplot_y[line_output.rdplot_x<c],
                      ax=ax,color=sns.color_palette()[0],linewidth=2)
-        sns.lineplot(x=line_output.rdplot_x[line_output.rdplot_x>0],y=line_output.rdplot_y[line_output.rdplot_x>0],
+        sns.lineplot(x=line_output.rdplot_x[line_output.rdplot_x>c],y=line_output.rdplot_y[line_output.rdplot_x>c],
                      ax=ax,color=sns.color_palette()[0],linewidth=2)
         ax.set(xlabel=x,ylabel=y)
         # Result includes the plot axis
@@ -249,7 +253,7 @@ Output:
 ### Robust RD Estimation
 ###############################################################################
 ###############################################################################
-def rdrobust(y, x, df, covs=None, x_range=[], c = 0, fuzzy = None, deriv = 0, p = 1, q=2, h = None,
+def rdrobust(y, x, df, covs=None, x_range=None, c = 0, fuzzy = None, deriv = 0, p = 1, q=2, h = None,
              bwselect = 'mserd', vce = 'nn', cluster = None, nnmatch = 3, level = 95, b = None,
              rho = None, kernel = 'tri', weights = None, scalepar = 1, scaleregul = 1,
              sharpbw = False, rep_all = True, subset = None, verbose=True):
@@ -261,9 +265,11 @@ Inputs:
 
     x is the running variable (a.k.a. score or forcing variable).
 
+    covs specifies additional covariates to be used in the polynomial regression. They should be a list of columns names in your dataframe (strings).
+
     c specifies the RD cutoff in x; default is c = 0.
 
-    x_range allows you to trim the dataframe. This is seperate from the R option "support" as it is crude and will just remove all observations outside the range of the running variable.
+    x_range is a list and allows you to trim the dataframe. This is seperate from the R option "support" as it is crude and will just remove all observations outside the range of the running variable.
 
     verbose (if True) displays the underlying R summary o the RD results.
 
@@ -280,8 +286,6 @@ Inputs:
     b specifies the bias bandwidth used to construct the bias-correction estimator. If not specified, bandwidth b is computed by the companion command rdbwselect. If two bandwidths are specified, the first bandwidth is used for the data below the cutoff and the second bandwidth is used for the data above the cutoff.
 
     rho specifies the value of rho, so that the bias bandwidth b equals h/rho. Default is rho = 1 if h is specified but b is not.
-
-    covs specifies additional covariates to be used for estimation and inference.
 
     kernel is the kernel function used to construct the local-polynomial estimator(s). Options are triangular (default option), epanechnikov and uniform.
 
@@ -364,30 +368,33 @@ Output:
     # Pull in the dictionary of all the available variables
     d = vars()
     df = df.copy()
+    varlst = [x,y]
 
     if covs and type(covs)==str:
         covs = [covs]
+        varlst += covs
 
     # General all purpose roptions
-    roptions = ['c','deriv','p','q','h','bwselect','vce',
-                'nnmatch','level','b','rho','kernel','weights','scalepar',
-                'scaleregul','sharpbw']
+    roptions = ['c','deriv','p','q','h','bwselect','vce','nnmatch','level','b',
+                    'rho','kernel','weights','scalepar','scaleregul','sharpbw']
 
     # y and x are called every time
     rdplot_call = 'y=df$%s,' %y + 'x=df$%s' %x
 
     # Other variables are actually in the dataframe and need to be added to the call
-    if covs and type(covs)==list:
-        all_covars = ',covs=cbind(' + ','.join(['df$%s' %x for x in covs])
-        rdplot_call += all_covars+')'
+    if covs:
+        rdplot_call += ',covs=cbind(' + ','.join(['df$%s' %x for x in covs])+')'
 
     # Take a subset
     if subset:
         rdplot_call += ','+'subset='+'df$%s' %subset
+        varlst += [subset]
     if fuzzy:
         rdplot_call += ','+'fuzzy='+'df$%s' %fuzzy
+        varlst += [fuzzy]
     if cluster:
         rdplot_call += ','+'cluster='+'df$%s' %cluster
+        varlst += [cluster]
     if rep_all:
         # all was changed to rep_all so as not to conflict with pythonic syntax
         rdplot_call += ','+'all=TRUE'
@@ -408,23 +415,27 @@ Output:
 
     function_call = '\n'.join(filter(None,
                                      ['library(rdrobust)',
-                                      "df = read.csv('temp_file_for_rdplot.csv')",
+                                      "df = read.csv('temp_file_for_rddesign.csv')",
                                       "out = rdrobust(%s)" %rdplot_call]))
+
     if x_range:
-        df = df[df[x].between(x_range[0],x_range[1])]
+        df = df.loc[df[x].between(x_range[0],x_range[1]),varlst]
+    else:
+        df = df.loc[:,varlst]
     # Modifications to the dataframe to get rid of infinite values
-    df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df.to_csv('temp_file_for_rdplot.csv')
+    df = df.replace([np.inf, -np.inf], np.nan)
+
+    # output, execute, delete
+    df.to_csv('temp_file_for_rddesign.csv')
     out = ro.r(function_call)
-    os.remove('temp_file_for_rdplot.csv')
+    os.remove('temp_file_for_rddesign.csv')
 
     elements = dict()
     for t in [x for x in out.names if x!='all']:
         try:
             elements[t] = ro.pandas2ri.ri2py(out.rx2(t))
         except:
-            print("There was an error, probably with importing R code")
-            print("Failed on %s" %t)
+            print("There was an error, probably with importing R code for %s" %t)
             pass
 
     class rd_dict:
@@ -451,7 +462,7 @@ Output:
 ### Bandwidth Selection for RD Design
 ###############################################################################
 ###############################################################################
-def rdbwselect(y, x, df, covs=[], x_range=[], c = 0, fuzzy = None, deriv = 0, p = 1, q=2,
+def rdbwselect(y, x, df, covs=None, x_range=None, c = 0, fuzzy = None, deriv = 0, p = 1, q=2,
              bwselect = 'mserd', vce = 'nn', cluster = None, nnmatch = 3,
              kernel = 'tri', weights = None, scaleregul = 1,
              sharpbw = False, rep_all = False, subset = None, verbose=True):
@@ -463,9 +474,11 @@ Inputs:
 
     x is the running variable (a.k.a. score or forcing variable).
 
+    covs specifies additional covariates to be used in the polynomial regression. They should be a list of columns names in your dataframe (strings).
+
     c specifies the RD cutoff in x; default is c = 0.
 
-    x_range allows you to trim the dataframe. This is seperate from the R option "support" as it is crude and will just remove all observations outside the range of the running variable.
+    x_range is a list and allows you to trim the dataframe. This is seperate from the R option "support" as it is crude and will just remove all observations outside the range of the running variable.
 
     verbose (if True) displays the underlying R summary o the RD results.
 
@@ -476,8 +489,6 @@ Inputs:
     p specifies the order of the local-polynomial used to construct the point-estimator; default is p = 1 (local linear regression).
 
     q specifies the order of the local-polynomial used to construct the bias-correction; default is q = 2 (local quadratic regression).
-
-    covs specifies additional covariates to be used for estimation and inference.
 
     kernel is the kernel function used to construct the local-polynomial estimator(s). Options are triangular (default option), epanechnikov and uniform.
 
@@ -549,6 +560,12 @@ Output:
     # Pull in the dictionary of all the available variables
     d = vars()
     df = df.copy()
+    varlst = [x,y]
+
+    if covs and type(covs)==str:
+        covs = [covs]
+        varlst += covs
+
     # General all purpose roptions
     roptions = ['c','deriv','p','q','bwselect','vce',
                 'nnmatch','kernel','weights',
@@ -558,18 +575,19 @@ Output:
     rdplot_call = 'y=df$%s,' %y + 'x=df$%s' %x
 
     # Other variables are actually in the dataframe and need to be added to the call
-    if covs and type(covs)==list:
-        all_covars = ',covs=cbind(' + ','.join(['df$%s' %x for x in covs])
-        rdplot_call += all_covars[:-1]+')'
-    elif covs and type(covs)==str:
-        all_covars = ',covs=df$%s' %covs
+    if covs:
+        rdplot_call += ',covs=cbind(' + ','.join(['df$%s' %x for x in covs])+')'
+
     # Take a subset
     if subset:
         rdplot_call += ','+'subset='+'df$%s' %subset
+        varlst += [subset]
     if fuzzy:
         rdplot_call += ','+'fuzzy='+'df$%s' %fuzzy
+        varlst += [fuzzy]
     if cluster:
         rdplot_call += ','+'cluster='+'df$%s' %cluster
+        varlst += [cluster]
     if rep_all:
         # all was changed to rep_all so as not to conflict with pythonic syntax
         rdplot_call += ','+'all=TRUE'
@@ -590,23 +608,27 @@ Output:
 
     function_call = '\n'.join(filter(None,
                                      ['library(rdrobust)',
-                                      "df = read.csv('temp_file_for_rdplot.csv')",
+                                      "df = read.csv('temp_file_for_rddesign.csv')",
                                       "out = rdbwselect(%s)" %rdplot_call]))
+
     if x_range:
-        df = df[df[x].between(x_range[0],x_range[1])]
+        df = df.loc[df[x].between(x_range[0],x_range[1]),varlst]
+    else:
+        df = df.loc[:,varlst]
     # Modifications to the dataframe to get rid of infinite values
-    df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df.to_csv('temp_file_for_rdplot.csv')
+    df = df.replace([np.inf, -np.inf], np.nan)
+
+    # run the thing
+    df.to_csv('temp_file_for_rddesign.csv')
     out = ro.r(function_call)
-    os.remove('temp_file_for_rdplot.csv')
+    os.remove('temp_file_for_rddesign.csv')
 
     elements = dict()
     for t in [x for x in out.names if x!='all']:
         try:
             elements[t] = ro.pandas2ri.ri2py(out.rx2(t))
         except:
-            print("There was an error, probably with importing R code")
-            print("Failed on %s" %t)
+            print("There was an error, probably with importing R code for %s" %t)
             pass
 
     class rd_dict:
