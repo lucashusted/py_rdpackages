@@ -96,6 +96,8 @@ Inputs:
 Output:
     ax which is the plot axis
 
+    fig which is the plot figure
+
     binselect method used to compute the optimal number of bins.
 
     N sample sizes used to the left and right of the cutoff.
@@ -229,6 +231,7 @@ Output:
     if hide:
         result = rd_dict(text_rdplot_arg=rdplot_call,**elements)
     else:
+        fig = plt.figure()
         if size:
             ax = sns.scatterplot(x='rdplot_mean_bin',y='rdplot_mean_y',
                                  data=bin_output,s=75,size='Obs',legend=legend)
@@ -243,7 +246,7 @@ Output:
                      ax=ax,color=sns.color_palette()[0],linewidth=2)
         ax.set(xlabel=x,ylabel=y)
         # Result includes the plot axis
-        result = rd_dict(ax=ax,text_rdplot_arg=rdplot_call,**elements)
+        result = rd_dict(fig=fig,ax=ax,text_rdplot_arg=rdplot_call,**elements)
 
     return result
 
