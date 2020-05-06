@@ -142,6 +142,8 @@ Output:
     if covs and type(covs)==str:
         covs = [covs]
         varlst += covs
+    elif covs and type(covs)==list:
+        varlst += covs
 
     # General all purpose roptions
     roptions = ['c','p','nbins','binselect','scale','kernel','weights','h','support']
@@ -376,6 +378,8 @@ Output:
     if covs and type(covs)==str:
         covs = [covs]
         varlst += covs
+    elif covs and type(covs)==list:
+        varlst += covs
 
     # General all purpose roptions
     roptions = ['c','deriv','p','q','h','bwselect','vce','nnmatch','level','b',
@@ -567,6 +571,8 @@ Output:
 
     if covs and type(covs)==str:
         covs = [covs]
+        varlst += covs
+    elif covs and type(covs)==list:
         varlst += covs
 
     # General all purpose roptions
