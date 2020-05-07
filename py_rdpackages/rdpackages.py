@@ -180,7 +180,7 @@ Output:
                 if not covs:
                     covs = list(tempdums.columns)
                 else:
-                    covs += list(tempdums.columns)
+                    covs = covs + list(tempdums.columns)
                 varlst += list(tempdums.columns)
 
     # General all purpose roptions
@@ -458,7 +458,7 @@ Output:
                 if not covs:
                     covs = list(tempdums.columns)
                 else:
-                    covs += list(tempdums.columns)
+                    covs = covs + list(tempdums.columns)
                 varlst += list(tempdums.columns)
 
     # General all purpose roptions
@@ -693,7 +693,7 @@ Output:
                 if not covs:
                     covs = list(tempdums.columns)
                 else:
-                    covs += list(tempdums.columns)
+                    covs = covs + list(tempdums.columns)
                 varlst += list(tempdums.columns)
 
     # General all purpose roptions
