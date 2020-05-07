@@ -28,9 +28,9 @@ import statsmodels.api as sm
 ### Plotting of RD Design
 ###############################################################################
 ###############################################################################
-def rdplot(y, x, df, covs = None, residualize = False, x_range = None, c = 0, p = 4, nbins = None, binselect = 'esmv',
+def rdplot(y, x, df, covs = None, dummies = None, residualize = False, x_range = None, c = 0, p = 4, nbins = None, binselect = 'esmv',
            scale = None, kernel = 'uni', weights = None, h = None, support = None, subset = None,
-           hide = False, R_options = None, verbose = False, size = True, legend = False):
+           hide = False, R_options = None, verbose = False, size = True, legend = False, smart_drop = True):
     '''
 Implements several data-driven Regression Discontinuity (RD) plots, using either evenly-spaced or quantile-spaced partitioning. Two type of RD plots are constructed: (i) RD plots with binned sample means tracing out the underlying regression function, and (ii) RD plots with binned sample means mimicking the underlying variability of the data. See here: https://www.rdocumentation.org/packages/rdrobust/versions/0.99.4/topics/rdplot.
 
@@ -42,6 +42,8 @@ Inputs:
     df specifies the pandas dataframe where this data is coming from
 
     covs specifies additional covariates to be used in the polynomial regression. They should be a list of columns names in your dataframe (strings).
+
+    dummies specifies dummy variable covariates to be used in the polynomial regression. They should be a list of columns names in your dataframe (strings). The program will automatically generate binary variables for each and drop the first one.
 
     residualize uses the residual of the LHS with respect to the covariates instead of the LHS itself. Covariates need to be specified for this option to be True.
 
@@ -93,6 +95,8 @@ Inputs:
 
     legend only matters if size is turned on. This should be either 'brief', 'full', or False
 
+    smart_drop automatically drops any covariates that take on ONLY one value (does not check for singularity in any other way (ie accross the other covariates); useful for iterating through situations where there several dummies, and should not affect interpretation of linear models)
+
 Output:
     ax which is the plot axis
 
@@ -136,14 +140,48 @@ Output:
     '''
     # Pull in the dictionary of all the available variables
     d = vars()
-    df = df.copy()
-    varlst = [x,y]
 
-    if covs and type(covs)==str:
-        covs = [covs]
+    # At the very least, cut out missing values of the two main variables
+    varlst = [x,y]
+    df = df.dropna(subset=varlst).copy()
+
+    if covs:
+        # convert singular covariates into a list for simplicity
+        if type(covs)==str:
+            covs = [covs]
+        elif type(covs)==tuple:
+            covs = list(covs)
+        # dealing with smart removal
+        if smart_drop:
+            dropped_vars = []
+            tempdf = df.loc[:,varlst].copy()
+            for ii in covs:
+                tempdf = tempdf.join(df[ii])
+                if len(tempdf.dropna()[ii].unique())==1:
+                    covs = [x for x in covs if x!=ii]
+                    dropped_vars += [ii]
+                    tempdf = tempdf.drop(columns=ii)
+                tempdf = tempdf.dropna()
+            if dropped_vars:
+                print('Dropped due to singularity:',', '.join(dropped_vars))
+        # append the result regardless
         varlst += covs
-    elif covs and type(covs)==list:
-        varlst += covs
+
+    df = df.dropna(subset=varlst).copy()
+
+    if dummies:
+        if type(dummies)==str:
+            dummies = [dummies]
+
+        for ii in dummies:
+            tempdums = pd.get_dummies(df[ii],prefix='rddum_%s' %ii,drop_first=True)
+            if tempdums.shape[1]>0:
+                df = df.join(tempdums)
+                if not covs:
+                    covs = list(tempdums.columns)
+                else:
+                    covs += list(tempdums.columns)
+                varlst += list(tempdums.columns)
 
     # General all purpose roptions
     roptions = ['c','p','nbins','binselect','scale','kernel','weights','h','support']
@@ -204,6 +242,10 @@ Output:
     df.to_csv('temp_file_for_rddesign.csv')
     out = ro.r(function_call)
     if verbose:
+        if covs:
+            print('RD of %s on %s with covariates: %s' %(y,x,', '.join(covs)))
+        else:
+            print('RD of %s on %s' %(y,x))
         print(out)
     os.remove('temp_file_for_rddesign.csv')
 
@@ -258,10 +300,10 @@ Output:
 ### Robust RD Estimation
 ###############################################################################
 ###############################################################################
-def rdrobust(y, x, df, covs=None, x_range=None, c = 0, fuzzy = None, deriv = 0, p = 1, q=2, h = None,
+def rdrobust(y, x, df, covs=None, dummies = None, x_range=None, c = 0, fuzzy = None, deriv = 0, p = 1, q=2, h = None,
              bwselect = 'mserd', vce = 'nn', cluster = None, nnmatch = 3, level = 95, b = None,
              rho = None, kernel = 'tri', weights = None, scalepar = 1, scaleregul = 1,
-             sharpbw = False, rep_all = True, subset = None, verbose=True):
+             sharpbw = False, rep_all = True, subset = None, verbose=True, smart_drop = True):
     '''
 Implements local polynomial Regression Discontinuity (RD) point estimators with robust bias-corrected confidence intervals and inference procedures. See here: https://www.rdocumentation.org/packages/rdrobust/versions/0.99.4/topics/rdrobust.
 
@@ -271,6 +313,8 @@ Inputs:
     x is the running variable (a.k.a. score or forcing variable).
 
     covs specifies additional covariates to be used in the polynomial regression. They should be a list of columns names in your dataframe (strings).
+
+    dummies specifies dummy variable covariates to be used in the polynomial regression. They should be a list of columns names in your dataframe (strings). The program will automatically generate binary variables for each and drop the first one.
 
     c specifies the RD cutoff in x; default is c = 0.
 
@@ -332,6 +376,8 @@ Inputs:
 
     subset an optional vector specifying a subset of observations to be used.
 
+    smart_drop automatically drops any covariates that take on ONLY one value (does not check for singularity in any other way (ie accross the other covariates); useful for iterating through situations where there several dummies, and should not affect interpretation of linear models)
+
 Output:
     N vector with the sample sizes used to the left and to the right of the cutoff.
 
@@ -372,14 +418,48 @@ Output:
     '''
     # Pull in the dictionary of all the available variables
     d = vars()
-    df = df.copy()
-    varlst = [x,y]
 
-    if covs and type(covs)==str:
-        covs = [covs]
+    # At the very least, cut out missing values of the two main variables
+    varlst = [x,y]
+    df = df.dropna(subset=varlst).copy()
+
+    if covs:
+        # convert singular covariates into a list for simplicity
+        if type(covs)==str:
+            covs = [covs]
+        elif type(covs)==tuple:
+            covs = list(covs)
+        # dealing with smart removal
+        if smart_drop:
+            dropped_vars = []
+            tempdf = df.loc[:,varlst].copy()
+            for ii in covs:
+                tempdf = tempdf.join(df[ii])
+                if len(tempdf.dropna()[ii].unique())==1:
+                    covs = [x for x in covs if x!=ii]
+                    dropped_vars += [ii]
+                    tempdf = tempdf.drop(columns=ii)
+                tempdf = tempdf.dropna()
+            if dropped_vars:
+                print('Dropped due to singularity:',', '.join(dropped_vars))
+        # append the result regardless
         varlst += covs
-    elif covs and type(covs)==list:
-        varlst += covs
+
+    df = df.dropna(subset=varlst).copy()
+
+    if dummies:
+        if type(dummies)==str:
+            dummies = [dummies]
+
+        for ii in dummies:
+            tempdums = pd.get_dummies(df[ii],prefix='rddum_%s' %ii,drop_first=True)
+            if tempdums.shape[1]>0:
+                df = df.join(tempdums)
+                if not covs:
+                    covs = list(tempdums.columns)
+                else:
+                    covs += list(tempdums.columns)
+                varlst += list(tempdums.columns)
 
     # General all purpose roptions
     roptions = ['c','deriv','p','q','h','bwselect','vce','nnmatch','level','b',
@@ -459,7 +539,11 @@ Output:
 
     if verbose:
         print(out)
-        print('RD of %s on %s' %(y,x))
+        if covs:
+            print('RD of %s on %s with covariates: %s' %(y,x,', '.join(covs)))
+        else:
+            print('RD of %s on %s' %(y,x))
+        print('')
         print(np.round(printout,3))
 
     return result
@@ -469,10 +553,10 @@ Output:
 ### Bandwidth Selection for RD Design
 ###############################################################################
 ###############################################################################
-def rdbwselect(y, x, df, covs=None, x_range=None, c = 0, fuzzy = None, deriv = 0, p = 1, q=2,
+def rdbwselect(y, x, df, covs=None, dummies = None, x_range=None, c = 0, fuzzy = None, deriv = 0, p = 1, q=2,
              bwselect = 'mserd', vce = 'nn', cluster = None, nnmatch = 3,
              kernel = 'tri', weights = None, scaleregul = 1,
-             sharpbw = False, rep_all = False, subset = None, verbose=True):
+             sharpbw = False, rep_all = False, subset = None, verbose=True, smart_drop = True):
     '''
 Implements bandwidth selectors for local polynomial Regression Discontinuity (RD) point estimators and inference procedures. See here: https://www.rdocumentation.org/packages/rdrobust/versions/0.99.4/topics/rdbwselect.
 
@@ -482,6 +566,8 @@ Inputs:
     x is the running variable (a.k.a. score or forcing variable).
 
     covs specifies additional covariates to be used in the polynomial regression. They should be a list of columns names in your dataframe (strings).
+
+    dummies specifies dummy variable covariates to be used in the polynomial regression. They should be a list of columns names in your dataframe (strings). The program will automatically generate binary variables for each and drop the first one.
 
     c specifies the RD cutoff in x; default is c = 0.
 
@@ -549,6 +635,8 @@ Inputs:
 
     subset an optional vector specifying a subset of observations to be used.
 
+    smart_drop automatically drops any covariates that take on ONLY one value (does not check for singularity in any other way (ie accross the other covariates); useful for iterating through situations where there several dummies, and should not affect interpretation of linear models)
+
 Output:
     N vector with sample sizes to the left and to the righst of the cutoff.
 
@@ -566,14 +654,47 @@ Output:
    '''
     # Pull in the dictionary of all the available variables
     d = vars()
-    df = df.copy()
-    varlst = [x,y]
 
-    if covs and type(covs)==str:
-        covs = [covs]
+    # At the very least, cut out missing values of the two main variables
+    varlst = [x,y]
+    df = df.dropna(subset=varlst).copy()
+
+    if covs:
+        # convert singular covariates into a list for simplicity
+        if type(covs)==str:
+            covs = [covs]
+        elif type(covs)==tuple:
+            covs = list(covs)
+        # dealing with smart removal
+        if smart_drop:
+            dropped_vars = []
+            tempdf = df.loc[:,varlst].copy()
+            for ii in covs:
+                tempdf = tempdf.join(df[ii])
+                if len(tempdf.dropna()[ii].unique())==1:
+                    covs = [x for x in covs if x!=ii]
+                    dropped_vars += [ii]
+                    tempdf = tempdf.drop(columns=ii)
+                tempdf = tempdf.dropna()
+            if dropped_vars:
+                print('Dropped due to singularity:',', '.join(dropped_vars))
+        # append the result regardless
         varlst += covs
-    elif covs and type(covs)==list:
-        varlst += covs
+
+    df = df.dropna(subset=varlst).copy()
+
+    if dummies:
+        if type(dummies)==str:
+            dummies = [dummies]
+        for ii in dummies:
+            tempdums = pd.get_dummies(df[ii],prefix='rddum_%s' %ii,drop_first=True)
+            if tempdums.shape[1]>0:
+                df = df.join(tempdums)
+                if not covs:
+                    covs = list(tempdums.columns)
+                else:
+                    covs += list(tempdums.columns)
+                varlst += list(tempdums.columns)
 
     # General all purpose roptions
     roptions = ['c','deriv','p','q','bwselect','vce',
@@ -652,7 +773,11 @@ Output:
 
     if verbose:
         print(out)
-        print('RD of %s on %s' %(y,x))
-        print(np.round(printout,2))
+        if covs:
+            print('RD of %s on %s with covariates: %s' %(y,x,', '.join(covs)))
+        else:
+            print('RD of %s on %s' %(y,x))
+        print('')
+        print(np.round(printout,3))
 
     return result
