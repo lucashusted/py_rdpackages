@@ -1,10 +1,16 @@
 # State of the Art RD Packages For Python
 
 ## Installation
-In terminal window:
+
+With pip for python:
 `pip install py_rdpackages`
-In R:
+
+Important: you need to have the original `rdrobust` installed in R:
 `install.packages('rdrobust')`
+
+Notes:
+- `rdrobust` requires the newest version of `ggplot2` so please: `install.packages('ggplot2')`
+- The `rdrobust` and `ggplot2` versions in Anaconda lag behind the current release for R. Please install in R directly as opposed to through conda.
 
 
 ## Introduction and Use
@@ -15,17 +21,18 @@ There are three packages in `py_rdpackages`:
 2. `rdrobust` does the RD and reports the regression results.
 3. `rdbwselect` selects the optimal bandwidth size.
 
-## Requirements
+## Requirements and Stability
+
 Use of the programs requires all of the following packages in Python:
 1. `rpy2` for running R in Python
 2. `matplotlib` and `seaborn` for producing high quality graphics
-3. `pandas`, `numpy` and `statsmodels` for data manipulation and dataframe reading
+3. `pandas`, `numpy` and for data manipulation and dataframe reading
 
-Important: you need to have the original `rdrobust` installed in R (you can find this in the above link).
+Currently tested and stable for:
+- `rdrobust` version 0.99.7
+- `ggplot2` version 3.3.0
+
 
 ## Limitations
 1. `ryp2` produced slow pandas DF to R DF conversions, so I use `pd.df.to_csv('temp_file_for_rd.csv')` as a solution and then delete that same file after doing the analysis. This should be fixed in future versions.
-2. I have not written a full set of graphics options for the RD plots. Future versions will allow you to use all of the classic `matplotlib` tools, and also turn on/off the vertical line and change the coloring of the scatterplot. Also, I do not incorporate standard errors on the scatterplot bins, which would be easy enough to add. In this version, if you want to do some of those things, you should do them after making a function call.
-3. Of course, Python calling R and then converting back to python is not ideal. Some future version should get the original C implementation of the code and just work from there.
-
-Hopefully I will make these better in the future, but for now let me know if you spot any bugs.
+2. Of course, Python calling R and then converting back to python is not ideal. Some future version should code this from scratch.
