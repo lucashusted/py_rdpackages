@@ -2,6 +2,8 @@
 
 ## Installation
 
+Please note that installation should be done with a mixture of pip and direct installations in R so that the correct versions of packages are installed.
+
 With pip for python:
 `pip install py_rdpackages`
 
@@ -29,7 +31,8 @@ Use of the programs requires all of the following packages in Python:
 3. `pandas`, `numpy` and for data manipulation and dataframe reading
 
 Currently tested and stable for:
-- `rdrobust` version 0.99.7
+- `rdrobust` version 0.99.9
+- `rpy2` version 2.9.4 (last version updated through conda -- may work for later versions)
 - `ggplot2` version 3.3.0
 
 
