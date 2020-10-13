@@ -18,7 +18,10 @@ from rpy2.robjects import pandas2ri; pandas2ri.activate()
 
 # Graphing packages
 import matplotlib.pyplot as plt
-import seaborn as sns; sns.set()
+import seaborn as sns
+sns.set()
+sns.set(font='Palatino')
+sns.set_style('whitegrid',{'font':'Palatino','grid.linestyle': 'dotted'})
 
 # Data manipulation packages
 import pandas as pd
@@ -295,8 +298,11 @@ def rdplot(y, x, df, covs = None, dummies = None,
             try:
                 elements[t] = ro.pandas2ri.ri2py(out.rx2(t))
             except:
-                print('Failed to pull',t)
-                pass
+                try:
+                    elements[t] = out.rx2(t)[0]
+                except:
+                    print('Failed to pull',t)
+                    pass
 
     line_output = elements['vars_poly']
     bin_output = elements['vars_bins']
@@ -317,7 +323,7 @@ def rdplot(y, x, df, covs = None, dummies = None,
                          yerr=(bin_output.rdplot_ci_l-bin_output.rdplot_ci_r)/2,
                                fmt='none',capsize=2,elinewidth=1)
 
-        plt.axvline(c,color=sns.color_palette()[1],linewidth=.75)
+        plt.axvline(c,color=sns.color_palette()[1],linewidth=1,linestyle='--')
         sns.lineplot(x=line_output.rdplot_x[line_output.rdplot_x<c],
                      y=line_output.rdplot_y[line_output.rdplot_x<c],
                      ax=ax,color=sns.color_palette()[0],linewidth=2)
@@ -679,8 +685,11 @@ def rdrobust(y, x, df, covs = None, dummies = None, c = 0, fuzzy = None, deriv =
         try:
             elements[t] = ro.pandas2ri.ri2py(out.rx2(t))
         except:
-            print('Failed to pull',t)
-            pass
+            try:
+                elements[t] = out.rx2(t)[0]
+            except:
+                print('Failed to pull',t)
+                pass
 
     result = rd_dict(text_rdplot_arg=rdplot_call,**elements)
     printout = pd.DataFrame(np.concatenate(
@@ -999,9 +1008,14 @@ def rdbwselect(y, x, df, covs=None, dummies = None, c = 0, fuzzy = None, deriv =
         try:
             elements[t] = ro.pandas2ri.ri2py(out.rx2(t))
         except:
-            print('Failed to pull',t)
-            pass
+            try:
+                elements[t] = out.rx2(t)[0]
+            except:
+                print('Failed to pull',t)
+                pass
 
+    if type(elements['bw_list'])!=list:
+        elements['bw_list'] = [elements['bw_list']]
     result = rd_dict(text_rdplot_arg=rdplot_call,**elements)
     printout = pd.DataFrame(data=result.bws,index=result.bw_list,
                             columns=['BW est. (h) Left','BW est. (h) R',

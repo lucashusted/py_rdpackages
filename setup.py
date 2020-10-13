@@ -12,7 +12,7 @@ with io.open(os.path.join(dir, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='py_rdpackages',
-    version='1.0.0',
+    version='1.0.1',
     description='A Pythonic Package for Regression Discontinuity',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -34,7 +34,7 @@ setup(
         "Programming Language :: Python",
         "Programming Language :: R"
         ],
-    install_requires=['matplotlib','seaborn','rpy2',
+    install_requires=['matplotlib','seaborn','rpy2<2.9.5',
                       'numpy','pandas>=0.25',
                       'patsy','tzlocal'],
     python_requires='>=3',
