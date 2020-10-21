@@ -18,10 +18,17 @@ Notes:
 ## Introduction and Use
 These packages are a work in progress, but are an attempt to create a wrapper to implement the wonderful RD packages found here (https://sites.google.com/site/rdpackages/rdrobust) which utilize R or Stata, so that they can be used in Python directly.
 
+I utilize the graphics package of Seaborn to make the plots look nice and to enable additional features, like binning points by size.
+
 There are three packages in `py_rdpackages`:
 1. `rdplot` creates plots of the regression discontinuity with a variety of options.
 2. `rdrobust` does the RD and reports the regression results.
 3. `rdbwselect` selects the optimal bandwidth size.
+
+## A Example of the Output
+The code in the testing folder produces the following example.
+
+![Alt text](/testing/sample_rdplot.png?raw=true "Regression Discontinuity")
 
 ## Requirements and Stability
 

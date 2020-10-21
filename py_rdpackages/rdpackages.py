@@ -18,10 +18,12 @@ from rpy2.robjects import pandas2ri; pandas2ri.activate()
 
 # Graphing packages
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.rc('font',**{'family':'serif','serif':['Palatino']})
 import seaborn as sns
 sns.set()
 sns.set(font='Palatino')
-sns.set_style('whitegrid',{'font':'Palatino','grid.linestyle': 'dotted'})
+sns.set_style('ticks',{'font':'Palatino'})
 
 # Data manipulation packages
 import pandas as pd
@@ -322,14 +324,15 @@ def rdplot(y, x, df, covs = None, dummies = None,
             plt.errorbar(bin_output.rdplot_mean_x,bin_output.rdplot_mean_y,
                          yerr=(bin_output.rdplot_ci_l-bin_output.rdplot_ci_r)/2,
                                fmt='none',capsize=2,elinewidth=1)
-
-        plt.axvline(c,color=sns.color_palette()[1],linewidth=1,linestyle='--')
+        plt.axvline(c,alpha=0.5,linestyle='--',linewidth=2,color='red')
         sns.lineplot(x=line_output.rdplot_x[line_output.rdplot_x<c],
                      y=line_output.rdplot_y[line_output.rdplot_x<c],
                      ax=ax,color=sns.color_palette()[0],linewidth=2)
         sns.lineplot(x=line_output.rdplot_x[line_output.rdplot_x>c],
                      y=line_output.rdplot_y[line_output.rdplot_x>c],
                      ax=ax,color=sns.color_palette()[0],linewidth=2)
+        sns.despine()
+        ax.yaxis.grid(True, which='major')
         ax.set(xlabel=x,ylabel=y)
         # Result includes the plot axis
         result = rd_dict(fig=fig,ax=ax,text_rdplot_arg=rdplot_call,**elements)

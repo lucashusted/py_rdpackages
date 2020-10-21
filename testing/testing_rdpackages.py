@@ -10,7 +10,11 @@ df = pd.read_csv('testing_data.csv')
 output = rdrobust('outcome','score',df)
 
 # getting the plot (feel free to change fig, ax in plot.fig, plot.ax)
-plot = rdplot('outcome','score',df,p=1)
+plot = rdplot('outcome','score',df,p=1,legend='brief')
+plt.ylabel('Outcome')
+plt.xlabel('Score')
+plot.ax.get_figure().savefig('sample_rdplot.png',
+                             format='png', dpi=600, bbox_inches = "tight")
 
 # bandwidths
 bws = rdbwselect('outcome','score',df)
