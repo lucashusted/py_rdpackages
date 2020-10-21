@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from py_rdpackages import rdrobust, rdplot, rdbwselect
+import matplotlib.pyplot as plt
 import pandas as pd
 
 # loading in a standard RD dataframe with a made up outcome and running variable
