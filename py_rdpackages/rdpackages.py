@@ -269,7 +269,7 @@ def rdplot(y, x, df, covs = None, dummies = None,
             rdplot_call += ''.join([',',str(key),'=',str(value)])
 
     function_call = '\n'.join(filter(None,
-                                     ['library(rdrobust)',
+                                     ['suppressMessages(library(rdrobust))',
                                       "df = read.csv('temp_file_for_rddesign.csv')",
                                       "out = rdplot(%s)" %rdplot_call]))
 
@@ -669,7 +669,7 @@ def rdrobust(y, x, df, covs = None, dummies = None, c = 0, fuzzy = None, deriv =
             rdplot_call += ''.join([',',str(key),'=',str(value)])
 
     function_call = '\n'.join(filter(None,
-                                     ['library(rdrobust)',
+                                     ['suppressMessages(library(rdrobust))',
                                       "df = read.csv('temp_file_for_rddesign.csv')",
                                       "out = rdrobust(%s)" %rdplot_call]))
 
@@ -991,7 +991,7 @@ def rdbwselect(y, x, df, covs=None, dummies = None, c = 0, fuzzy = None, deriv =
             rdplot_call += ''.join([',',str(key),'=',str(value)])
 
     function_call = '\n'.join(filter(None,
-                                     ['library(rdrobust)',
+                                     ['suppressMessages(library(rdrobust))',
                                       "df = read.csv('temp_file_for_rddesign.csv')",
                                       "out = rdbwselect(%s)" %rdplot_call]))
 

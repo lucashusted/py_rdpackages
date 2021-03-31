@@ -12,7 +12,7 @@ with io.open(os.path.join(dir, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='py_rdpackages',
-    version='1.0.2',
+    version='1.0.3',
     description='A Pythonic Package for Regression Discontinuity',
     long_description=long_description,
     long_description_content_type='text/markdown',
